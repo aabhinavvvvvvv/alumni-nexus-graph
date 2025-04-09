@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,32 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Alumni Nexus Graph specific colors
+				"alumni-blue": {
+					50: "#E9EFFD",
+					100: "#D4DFFC",
+					200: "#A9BFF9",
+					300: "#7E9FF6",
+					400: "#537FF3",
+					500: "#285EF0",
+					600: "#0C3BC8",
+					700: "#082C96",
+					800: "#051D64",
+					900: "#030E32",
+				},
+				"alumni-purple": {
+					50: "#F1EAFE",
+					100: "#E4D5FD",
+					200: "#C8ACFB",
+					300: "#AD82F9",
+					400: "#9158F7",
+					500: "#762EF5",
+					600: "#5B0AD0",
+					700: "#44089C",
+					800: "#2E0568",
+					900: "#170334",
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +110,21 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				},
+				'pulse-slow': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.5' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.5s ease-out',
+				'pulse-slow': 'pulse-slow 3s ease-in-out infinite'
 			}
 		}
 	},
