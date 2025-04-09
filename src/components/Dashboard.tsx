@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import AlumniCard from './AlumniCard';
 import FilterPanel from './FilterPanel';
 import { 
   generateGraphData, alumni, departments, companies, 
-  skills, events, getEntityById, GraphData, Person
+  skills, events, getEntityById, GraphData, Person,
+  GraphNode, GraphLink
 } from '@/data/mockData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,12 +84,12 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
             
           if (!sourceNode || !targetNode) return false;
           
-          const sourceLabel = typeof sourceNode === 'string' ? sourceNode : sourceNode.label;
-          const targetLabel = typeof targetNode === 'string' ? targetNode : targetNode.label;
+          const sourceLabel = typeof sourceNode === 'object' ? sourceNode.label : '';
+          const targetLabel = typeof targetNode === 'object' ? targetNode.label : '';
           
           return (
-            (typeof sourceLabel === 'string' && sourceLabel.toLowerCase().includes(searchLower)) || 
-            (typeof targetLabel === 'string' && targetLabel.toLowerCase().includes(searchLower))
+            sourceLabel.toLowerCase().includes(searchLower) || 
+            targetLabel.toLowerCase().includes(searchLower)
           );
         })
       };
@@ -113,8 +115,8 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       
       // Find connected alumni nodes
       filteredData.links.forEach(link => {
-        const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-        const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
         
         if (keepNodes.has(sourceId)) keepNodes.add(targetId);
         if (keepNodes.has(targetId)) keepNodes.add(sourceId);
@@ -124,8 +126,8 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       filteredData = {
         nodes: filteredData.nodes.filter(node => keepNodes.has(node.id)),
         links: filteredData.links.filter(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-          const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+          const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+          const targetId = typeof link.target === 'object' ? link.target.id : link.target;
           return keepNodes.has(sourceId) && keepNodes.has(targetId);
         })
       };

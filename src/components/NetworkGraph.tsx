@@ -14,10 +14,30 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.nodes.length) return;
+    if (!svgRef.current) return;
 
     // Clear any existing graph
     d3.select(svgRef.current).selectAll("*").remove();
+
+    // Check if we have valid data to render
+    if (!data.nodes || data.nodes.length === 0) {
+      // Display a message when no data is available
+      const width = svgRef.current.clientWidth;
+      const height = svgRef.current.clientHeight;
+      
+      const svg = d3.select(svgRef.current)
+        .attr("width", width)
+        .attr("height", height);
+        
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("No data to display. Try adjusting your filters.");
+        
+      return;
+    }
 
     // Get the dimensions of the container
     const width = svgRef.current.clientWidth;
@@ -43,9 +63,20 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Apply the zoom behavior
     svg.call(zoom);
 
-    // Create a force simulation
-    const simulation = d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink<GraphNode, GraphLink>(data.links)
+    // Create a force simulation with a deep copy of the nodes to avoid modification of props
+    const nodesCopy = data.nodes.map(node => ({...node})); 
+    const linksCopy = data.links.map(link => ({...link}));
+
+    // Make sure all nodes have ids and all links reference nodes that exist
+    const nodeIds = new Set(nodesCopy.map(node => node.id));
+    const validLinks = linksCopy.filter(link => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+      return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
+
+    const simulation = d3.forceSimulation(nodesCopy)
+      .force("link", d3.forceLink<GraphNode, GraphLink>(validLinks)
         .id(d => d.id)
         .distance(100)
       )
@@ -56,7 +87,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Draw links
     const link = g.append("g")
       .selectAll("line")
-      .data(data.links)
+      .data(validLinks)
       .enter()
       .append("line")
       .attr("stroke", "#999")
@@ -66,7 +97,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Add link labels
     const linkLabel = g.append("g")
       .selectAll("text")
-      .data(data.links)
+      .data(validLinks)
       .enter()
       .append("text")
       .text(d => d.label || "")
@@ -85,7 +116,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Draw nodes with different colors based on type
     const node = g.append("g")
       .selectAll("circle")
-      .data(data.nodes)
+      .data(nodesCopy)
       .enter()
       .append("circle")
       .attr("r", d => d.size || 5)
@@ -95,15 +126,26 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
       .attr("cursor", "pointer")
       .call(drag(simulation) as any);
 
+    // Add node colors based on type
+    node.attr("fill", d => {
+      switch (d.type) {
+        case 'alumni': return "#9b87f5"; // Primary Purple
+        case 'department': return "#0EA5E9"; // Ocean Blue
+        case 'company': return "#F97316"; // Bright Orange
+        case 'skill': return "#8B5CF6"; // Vivid Purple
+        case 'event': return "#D946EF"; // Magenta Pink
+        default: return "#8E9196"; // Neutral Gray
+      }
+    });
+
     // Add a highlight effect for the selected node
     if (selectedNodeId) {
       node.attr("opacity", d => d.id === selectedNodeId ? 1 : 0.3);
-      link.attr("opacity", d => 
-        d.source === selectedNodeId || 
-        (typeof d.source === 'object' && (d.source as GraphNode).id === selectedNodeId) ||
-        d.target === selectedNodeId || 
-        (typeof d.target === 'object' && (d.target as GraphNode).id === selectedNodeId) 
-          ? 1 : 0.1);
+      link.attr("opacity", d => {
+        const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+        const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+        return sourceId === selectedNodeId || targetId === selectedNodeId ? 1 : 0.1;
+      });
     } else {
       node.attr("opacity", 1);
       link.attr("opacity", 0.6);
@@ -112,7 +154,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Add labels to nodes
     const label = g.append("g")
       .selectAll("text")
-      .data(data.nodes)
+      .data(nodesCopy)
       .enter()
       .append("text")
       .text(d => d.label)
