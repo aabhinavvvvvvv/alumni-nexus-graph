@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { Alumni } from '@/data/mockData';
+import { Person } from '@/data/mockData';
 import AlumniCard from './AlumniCard';
 import { getEntityById, departments, companies } from '@/data/mockData';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 interface AlumniResultsProps {
-  alumni: Alumni[];
+  alumni: Person[];
 }
 
 export default function AlumniResults({ alumni }: AlumniResultsProps) {
