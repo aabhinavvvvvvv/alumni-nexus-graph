@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { alumni } from '@/data/mockData';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ const Login = () => {
     // Mock authentication - in real app, this would be a backend API call
     const user = alumni.find(a => a.email === email);
     
-    if (user && password === '123456') {  // Mock password check
+    if (user && password === 'demo123') {  // Demo password check
       // Store user info in local storage for persistence
       localStorage.setItem('currentUser', JSON.stringify(user));
       
@@ -71,12 +72,22 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                For demo purposes, use any email from the alumni list with password: 123456
-              </p>
             </div>
             <Button type="submit" className="w-full">Login</Button>
           </form>
+          
+          <Alert className="mt-6 bg-muted">
+            <AlertDescription>
+              <p className="font-medium text-center">Demo Credentials</p>
+              <div className="mt-2 text-sm">
+                <p><strong>Email:</strong> sarah.j@example.com</p>
+                <p><strong>Password:</strong> demo123</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  (You can also use any other email from the alumni list with the same password)
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button variant="link" onClick={() => navigate('/')}>
