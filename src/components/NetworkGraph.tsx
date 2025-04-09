@@ -70,9 +70,9 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Make sure all nodes have ids and all links reference nodes that exist
     const nodeIds = new Set(nodesCopy.map(node => node.id));
     const validLinks = linksCopy.filter(link => {
-      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-      return nodeIds.has(sourceId) && nodeIds.has(targetId);
+      const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
+      return sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
     });
 
     const simulation = d3.forceSimulation(nodesCopy)
@@ -142,9 +142,9 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     if (selectedNodeId) {
       node.attr("opacity", d => d.id === selectedNodeId ? 1 : 0.3);
       link.attr("opacity", d => {
-        const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
-        const targetId = typeof d.target === 'object' ? d.target.id : d.target;
-        return sourceId === selectedNodeId || targetId === selectedNodeId ? 1 : 0.1;
+        const sourceId = typeof d.source === 'object' && d.source ? d.source.id : d.source;
+        const targetId = typeof d.target === 'object' && d.target ? d.target.id : d.target;
+        return (sourceId && sourceId === selectedNodeId) || (targetId && targetId === selectedNodeId) ? 1 : 0.1;
       });
     } else {
       node.attr("opacity", 1);
@@ -185,22 +185,44 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     // Define tick function to update positions
     simulation.on("tick", () => {
       link
-        .attr("x1", d => (d.source as any).x)
-        .attr("y1", d => (d.source as any).y)
-        .attr("x2", d => (d.target as any).x)
-        .attr("y2", d => (d.target as any).y);
+        .attr("x1", d => {
+          const source = d.source as any;
+          return source && typeof source.x === 'number' ? source.x : 0;
+        })
+        .attr("y1", d => {
+          const source = d.source as any;
+          return source && typeof source.y === 'number' ? source.y : 0;
+        })
+        .attr("x2", d => {
+          const target = d.target as any;
+          return target && typeof target.x === 'number' ? target.x : 0;
+        })
+        .attr("y2", d => {
+          const target = d.target as any;
+          return target && typeof target.y === 'number' ? target.y : 0;
+        });
 
       node
-        .attr("cx", d => d.x!)
-        .attr("cy", d => d.y!);
+        .attr("cx", d => d.x !== undefined ? d.x : 0)
+        .attr("cy", d => d.y !== undefined ? d.y : 0);
 
       label
-        .attr("x", d => d.x!)
-        .attr("y", d => d.y!);
+        .attr("x", d => d.x !== undefined ? d.x : 0)
+        .attr("y", d => d.y !== undefined ? d.y : 0);
         
       linkLabel
-        .attr("x", d => ((d.source as any).x + (d.target as any).x) / 2)
-        .attr("y", d => ((d.source as any).y + (d.target as any).y) / 2);
+        .attr("x", d => {
+          const source = d.source as any;
+          const target = d.target as any;
+          return source && target && typeof source.x === 'number' && typeof target.x === 'number' 
+            ? (source.x + target.x) / 2 : 0;
+        })
+        .attr("y", d => {
+          const source = d.source as any;
+          const target = d.target as any;
+          return source && target && typeof source.y === 'number' && typeof target.y === 'number'
+            ? (source.y + target.y) / 2 : 0;
+        });
     });
 
     // Drag function
@@ -235,7 +257,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
   }, [data, selectedNodeId, onNodeClick]);
 
   return (
-    <Card className="w-full h-[calc(100vh-16rem)] bg-white/50 dark:bg-card/50 backdrop-blur-sm border overflow-hidden">
+    <Card className="w-full h-full bg-white/50 dark:bg-card/50 backdrop-blur-sm border overflow-hidden">
       <svg ref={svgRef} className="w-full h-full" />
     </Card>
   );

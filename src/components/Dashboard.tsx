@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import AlumniCard from './AlumniCard';
@@ -115,20 +114,20 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       
       // Find connected alumni nodes
       filteredData.links.forEach(link => {
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
         
-        if (keepNodes.has(sourceId)) keepNodes.add(targetId);
-        if (keepNodes.has(targetId)) keepNodes.add(sourceId);
+        if (sourceId && keepNodes.has(sourceId)) keepNodes.add(targetId || '');
+        if (targetId && keepNodes.has(targetId)) keepNodes.add(sourceId || '');
       });
       
       // Apply filters
       filteredData = {
         nodes: filteredData.nodes.filter(node => keepNodes.has(node.id)),
         links: filteredData.links.filter(link => {
-          const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-          const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-          return keepNodes.has(sourceId) && keepNodes.has(targetId);
+          const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+          const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
+          return sourceId && targetId && keepNodes.has(sourceId) && keepNodes.has(targetId);
         })
       };
     }

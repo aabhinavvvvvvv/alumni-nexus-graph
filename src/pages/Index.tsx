@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Dashboard from '@/components/Dashboard';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -27,11 +29,20 @@ const Index = () => {
           activeFilter={activeFilter}
           setActiveFilter={setActiveFilter}
         />
-        <Dashboard 
-          sidebarOpen={sidebarOpen} 
-          activeFilter={activeFilter} 
-          searchTerm={searchTerm} 
-        />
+        <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'} p-4 w-full`}>
+          <div className="mb-4 flex justify-end">
+            <Link to="/advanced-filtering">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Advanced Filtering
+              </Button>
+            </Link>
+          </div>
+          <Dashboard 
+            sidebarOpen={sidebarOpen} 
+            activeFilter={activeFilter} 
+            searchTerm={searchTerm} 
+          />
+        </div>
       </div>
     </div>
   );
