@@ -1,8 +1,10 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import * as d3 from 'd3';
 import { GraphData, GraphNode, GraphLink } from '@/data/mockData';
+import { Button } from '@/components/ui/button';
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface NetworkGraphProps {
   data: GraphData;
@@ -12,8 +14,12 @@ interface NetworkGraphProps {
 
 export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-
-  useEffect(() => {
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [showLabels, setShowLabels] = useState(true);
+  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  
+  // Function to update the graph
+  const updateGraph = () => {
     if (!svgRef.current) return;
 
     // Clear any existing graph
@@ -55,9 +61,10 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
 
     // Create a zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.2, 3])
+      .scaleExtent([0.2, 5]) // Allow more zoom levels
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
+        setZoomLevel(event.transform.k);
       });
 
     // Apply the zoom behavior
@@ -72,27 +79,49 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     const validLinks = linksCopy.filter(link => {
       const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
       const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
-      return sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
+      return sourceId && targetId && nodeIds.has(sourceId as string) && nodeIds.has(targetId as string);
     });
 
     const simulation = d3.forceSimulation(nodesCopy)
       .force("link", d3.forceLink<GraphNode, GraphLink>(validLinks)
         .id(d => d.id)
-        .distance(100)
+        .distance(120) // Increase distance between nodes
       )
-      .force("charge", d3.forceManyBody().strength(-250))
+      .force("charge", d3.forceManyBody().strength(-350)) // Stronger repulsion force
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius((d: any) => d.size * 2));
+      .force("collision", d3.forceCollide().radius((d: GraphNode) => (d.size || 5) * 2));
 
-    // Draw links
+    // Save the simulation for later use
+    simulationRef.current = simulation;
+
+    // Draw links with curved paths
     const link = g.append("g")
-      .selectAll("line")
+      .selectAll("path")
       .data(validLinks)
       .enter()
-      .append("line")
+      .append("path")
       .attr("stroke", "#999")
       .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 1);
+      .attr("stroke-width", 1.5) // Thicker lines
+      .attr("fill", "none");
+
+    // Add arrowhead markers for directed links
+    svg.append("defs").selectAll("marker")
+      .data(["end"])
+      .enter().append("marker")
+      .attr("id", String)
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 25) // Position slightly away from the target node
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#999");
+
+    // Apply the marker to all links
+    link.attr("marker-end", "url(#end)");
 
     // Add link labels
     const linkLabel = g.append("g")
@@ -100,75 +129,76 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
       .data(validLinks)
       .enter()
       .append("text")
-      .text(d => d.label || "")
-      .attr("font-size", "8px")
+      .text(d => d.label || d.type || "")
+      .attr("font-size", "10px")
+      .attr("font-weight", "bold")
       .attr("text-anchor", "middle")
       .attr("dy", -3)
-      .attr("fill", "#666")
+      .attr("fill", "#555")
       .attr("opacity", 0) // Start hidden
+      .attr("class", "link-label")
       .on("mouseover", function() {
         d3.select(this).attr("opacity", 1);
       })
       .on("mouseout", function() {
-        d3.select(this).attr("opacity", 0);
+        d3.select(this).attr("opacity", showLabels ? 0.7 : 0);
       });
 
     // Draw nodes with different colors based on type
-    const node = g.append("g")
-      .selectAll("circle")
+    const nodeGroup = g.append("g")
+      .selectAll("g")
       .data(nodesCopy)
       .enter()
-      .append("circle")
-      .attr("r", d => d.size || 5)
-      .attr("class", d => `node-${d.type}`)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 1.5)
+      .append("g")
+      .attr("class", "node-group")
       .attr("cursor", "pointer")
       .call(drag(simulation) as any);
 
-    // Add node colors based on type
-    node.attr("fill", d => {
-      switch (d.type) {
-        case 'alumni': return "#9b87f5"; // Primary Purple
-        case 'department': return "#0EA5E9"; // Ocean Blue
-        case 'company': return "#F97316"; // Bright Orange
-        case 'skill': return "#8B5CF6"; // Vivid Purple
-        case 'event': return "#D946EF"; // Magenta Pink
-        default: return "#8E9196"; // Neutral Gray
-      }
-    });
+    // Add circle for each node
+    nodeGroup.append("circle")
+      .attr("r", d => (d.size || 5) * 1.2) // Slightly larger nodes
+      .attr("class", d => `node-${d.type}`)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .attr("fill", d => {
+        switch (d.type) {
+          case 'alumni': return "#9b87f5"; // Primary Purple
+          case 'department': return "#0EA5E9"; // Ocean Blue
+          case 'company': return "#F97316"; // Bright Orange
+          case 'skill': return "#8B5CF6"; // Vivid Purple
+          case 'event': return "#D946EF"; // Magenta Pink
+          default: return "#8E9196"; // Neutral Gray
+        }
+      });
 
     // Add a highlight effect for the selected node
     if (selectedNodeId) {
-      node.attr("opacity", d => d.id === selectedNodeId ? 1 : 0.3);
+      nodeGroup.attr("opacity", d => d.id === selectedNodeId ? 1 : 0.3);
       link.attr("opacity", d => {
         const sourceId = typeof d.source === 'object' && d.source ? d.source.id : d.source;
         const targetId = typeof d.target === 'object' && d.target ? d.target.id : d.target;
-        return (sourceId && sourceId === selectedNodeId) || (targetId && targetId === selectedNodeId) ? 1 : 0.1;
+        return (sourceId === selectedNodeId) || (targetId === selectedNodeId) ? 1 : 0.1;
       });
     } else {
-      node.attr("opacity", 1);
+      nodeGroup.attr("opacity", 1);
       link.attr("opacity", 0.6);
     }
 
     // Add labels to nodes
-    const label = g.append("g")
-      .selectAll("text")
-      .data(nodesCopy)
-      .enter()
-      .append("text")
+    const label = nodeGroup.append("text")
       .text(d => d.label)
-      .attr("font-size", "10px")
+      .attr("font-size", "11px")
       .attr("text-anchor", "middle")
-      .attr("dy", -10)
-      .attr("opacity", d => d.id === selectedNodeId ? 1 : 0.7);
+      .attr("dy", d => -(d.size || 5) - 8)
+      .attr("font-weight", d => d.id === selectedNodeId ? "bold" : "normal")
+      .attr("opacity", d => showLabels || d.id === selectedNodeId ? 0.9 : 0);
 
     // Add tooltips
-    node.append("title")
+    nodeGroup.append("title")
       .text(d => `${d.label} (${d.type})`);
 
     // Add click handler
-    node.on("click", (event, d) => {
+    nodeGroup.on("click", (event, d) => {
       if (onNodeClick) {
         event.stopPropagation();
         onNodeClick(d.id);
@@ -184,32 +214,25 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
 
     // Define tick function to update positions
     simulation.on("tick", () => {
-      link
-        .attr("x1", d => {
-          const source = d.source as any;
-          return source && typeof source.x === 'number' ? source.x : 0;
-        })
-        .attr("y1", d => {
-          const source = d.source as any;
-          return source && typeof source.y === 'number' ? source.y : 0;
-        })
-        .attr("x2", d => {
-          const target = d.target as any;
-          return target && typeof target.x === 'number' ? target.x : 0;
-        })
-        .attr("y2", d => {
-          const target = d.target as any;
-          return target && typeof target.y === 'number' ? target.y : 0;
-        });
-
-      node
-        .attr("cx", d => d.x !== undefined ? d.x : 0)
-        .attr("cy", d => d.y !== undefined ? d.y : 0);
-
-      label
-        .attr("x", d => d.x !== undefined ? d.x : 0)
-        .attr("y", d => d.y !== undefined ? d.y : 0);
+      // Update link paths - using curved paths for better visualization
+      link.attr("d", (d: any) => {
+        const sourceX = d.source.x || 0;
+        const sourceY = d.source.y || 0;
+        const targetX = d.target.x || 0;
+        const targetY = d.target.y || 0;
         
+        // Create a slight curve for all links
+        const dx = targetX - sourceX;
+        const dy = targetY - sourceY;
+        const dr = Math.sqrt(dx * dx + dy * dy) * 2;
+        
+        return `M${sourceX},${sourceY}A${dr},${dr} 0 0,1 ${targetX},${targetY}`;
+      });
+
+      // Update node positions
+      nodeGroup.attr("transform", d => `translate(${d.x || 0},${d.y || 0})`);
+        
+      // Update link label positions
       linkLabel
         .attr("x", d => {
           const source = d.source as any;
@@ -221,44 +244,143 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
           const source = d.source as any;
           const target = d.target as any;
           return source && target && typeof source.y === 'number' && typeof target.y === 'number'
-            ? (source.y + target.y) / 2 : 0;
+            ? (source.y + target.y) / 2 - 10 : 0;
         });
     });
+  };
 
-    // Drag function
-    function drag(simulation: d3.Simulation<GraphNode, GraphLink>) {
-      function dragstarted(event: any) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-      }
-      
-      function dragged(event: any) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-      }
-      
-      function dragended(event: any) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-      }
-      
-      return d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
+  // Create drag behavior function
+  function drag(simulation: d3.Simulation<GraphNode, GraphLink>) {
+    function dragstarted(event: any) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      event.subject.fx = event.subject.x;
+      event.subject.fy = event.subject.y;
     }
+    
+    function dragged(event: any) {
+      event.subject.fx = event.x;
+      event.subject.fy = event.y;
+    }
+    
+    function dragended(event: any) {
+      if (!event.active) simulation.alphaTarget(0);
+      event.subject.fx = null;
+      event.subject.fy = null;
+    }
+    
+    return d3.drag()
+      .on("start", dragstarted)
+      .on("drag", dragged)
+      .on("end", dragended);
+  }
 
+  // Handle zoom controls
+  const handleZoomIn = () => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const currentZoom = d3.zoomTransform(svg.node() as any);
+    svg.transition().duration(300).call(
+      (d3.zoom<SVGSVGElement, unknown>() as any).transform,
+      d3.zoomIdentity.translate(currentZoom.x, currentZoom.y).scale(currentZoom.k * 1.3)
+    );
+  };
+
+  const handleZoomOut = () => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const currentZoom = d3.zoomTransform(svg.node() as any);
+    svg.transition().duration(300).call(
+      (d3.zoom<SVGSVGElement, unknown>() as any).transform,
+      d3.zoomIdentity.translate(currentZoom.x, currentZoom.y).scale(currentZoom.k / 1.3)
+    );
+  };
+
+  const handleReset = () => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.transition().duration(500).call(
+      (d3.zoom<SVGSVGElement, unknown>() as any).transform,
+      d3.zoomIdentity
+    );
+    updateGraph(); // Re-render the graph
+  };
+
+  const toggleLabels = () => {
+    setShowLabels(!showLabels);
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      svg.selectAll(".node-group text")
+        .transition()
+        .duration(300)
+        .attr("opacity", !showLabels ? 0.9 : 0);
+      
+      svg.selectAll(".link-label")
+        .transition()
+        .duration(300)
+        .attr("opacity", !showLabels ? 0.7 : 0);
+    }
+  };
+
+  // Update the graph when data or selectedNodeId changes
+  useEffect(() => {
+    updateGraph();
+    
     // Cleanup function
     return () => {
-      simulation.stop();
+      if (simulationRef.current) {
+        simulationRef.current.stop();
+      }
     };
   }, [data, selectedNodeId, onNodeClick]);
 
   return (
-    <Card className="w-full h-full bg-white/50 dark:bg-card/50 backdrop-blur-sm border overflow-hidden">
-      <svg ref={svgRef} className="w-full h-full" />
+    <Card className="w-full h-full bg-white/50 dark:bg-card/50 backdrop-blur-sm border overflow-hidden flex flex-col">
+      <div className="p-2 flex gap-2 justify-end bg-muted/30">
+        <Button variant="outline" size="sm" onClick={handleZoomIn}>
+          <ZoomIn className="h-4 w-4 mr-1" />
+          Zoom In
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleZoomOut}>
+          <ZoomOut className="h-4 w-4 mr-1" />
+          Zoom Out
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          <RotateCcw className="h-4 w-4 mr-1" />
+          Reset
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={toggleLabels}
+        >
+          {showLabels ? "Hide Labels" : "Show Labels"}
+        </Button>
+      </div>
+      <div className="flex-1 relative">
+        <svg ref={svgRef} className="w-full h-full" />
+        <div className="absolute bottom-2 left-2 bg-background/80 backdrop-blur-sm p-2 rounded-md text-xs">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-3 h-3 rounded-full bg-[#9b87f5]"></span>
+            <span>Alumni</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-3 h-3 rounded-full bg-[#0EA5E9]"></span>
+            <span>Department</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-3 h-3 rounded-full bg-[#F97316]"></span>
+            <span>Company</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-3 h-3 rounded-full bg-[#8B5CF6]"></span>
+            <span>Skill</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-[#D946EF]"></span>
+            <span>Event</span>
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }

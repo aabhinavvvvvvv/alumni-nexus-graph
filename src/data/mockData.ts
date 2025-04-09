@@ -1,4 +1,3 @@
-
 export interface Person {
   id: string;
   name: string;
@@ -10,6 +9,8 @@ export interface Person {
   graduationYear: number;
   email: string;
   events: string[];
+  bio?: string;
+  role?: string;
 }
 
 export interface Department {
@@ -44,11 +45,15 @@ export interface GraphNode {
   label: string;
   type: 'alumni' | 'department' | 'company' | 'skill' | 'event';
   size?: number;
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 export interface GraphLink {
-  source: string;
-  target: string;
+  source: string | GraphNode;
+  target: string | GraphNode;
   type: 'WORKS_AT' | 'STUDIED_IN' | 'HAS_SKILL' | 'ATTENDED';
   label?: string;
 }
@@ -70,7 +75,9 @@ export const alumni: Person[] = [
     skills: ['s1', 's2', 's3'],
     graduationYear: 2018,
     email: 'sarah.j@example.com',
-    events: ['e1', 'e3']
+    events: ['e1', 'e3'],
+    bio: 'Experienced software engineer with a passion for building user-friendly applications. Graduated from the Computer Science department with honors.',
+    role: 'Full Stack Developer'
   },
   {
     id: 'a2',
@@ -82,7 +89,9 @@ export const alumni: Person[] = [
     skills: ['s2', 's4', 's5'],
     graduationYear: 2019,
     email: 'michael.c@example.com',
-    events: ['e2', 'e3']
+    events: ['e2', 'e3'],
+    bio: 'Data scientist with a strong background in machine learning and AI. Enjoys working with large datasets to extract meaningful insights.',
+    role: 'AI/ML Specialist'
   },
   {
     id: 'a3',
@@ -94,7 +103,9 @@ export const alumni: Person[] = [
     skills: ['s6', 's7'],
     graduationYear: 2020,
     email: 'emily.r@example.com',
-    events: ['e1', 'e4']
+    events: ['e1', 'e4'],
+    bio: 'UX designer focused on creating intuitive and accessible interfaces. Advocates for user-centered design in all projects.',
+    role: 'Senior Designer'
   },
   {
     id: 'a4',
@@ -106,7 +117,9 @@ export const alumni: Person[] = [
     skills: ['s8', 's9', 's3'],
     graduationYear: 2017,
     email: 'david.k@example.com',
-    events: ['e2', 'e4']
+    events: ['e2', 'e4'],
+    bio: 'Product manager with experience in leading cross-functional teams. Passionate about building products that solve real user problems.',
+    role: 'Product Lead'
   },
   {
     id: 'a5',
@@ -118,7 +131,9 @@ export const alumni: Person[] = [
     skills: ['s10', 's11'],
     graduationYear: 2021,
     email: 'lisa.w@example.com',
-    events: ['e3', 'e4']
+    events: ['e3', 'e4'],
+    bio: 'Marketing specialist with a focus on digital campaigns and social media strategy. Always looking for innovative ways to engage audiences.',
+    role: 'Digital Marketing Manager'
   },
   {
     id: 'a6',
@@ -130,7 +145,9 @@ export const alumni: Person[] = [
     skills: ['s12', 's13'],
     graduationYear: 2019,
     email: 'robert.t@example.com',
-    events: ['e1', 'e5']
+    events: ['e1', 'e5'],
+    bio: 'Financial analyst with expertise in investment analysis and financial modeling. Dedicated to finding value and managing risk.',
+    role: 'Senior Financial Analyst'
   }
 ];
 
