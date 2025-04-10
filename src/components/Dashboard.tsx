@@ -1,15 +1,26 @@
-
 import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import AlumniCard from './AlumniCard';
 import FilterPanel from './FilterPanel';
 import { 
-  generateGraphData, alumni, departments, companies, 
-  skills, events, getEntityById, GraphData, Person,
-  GraphNode, GraphLink
-} from '@/data/mockData';
+  Person, Department, Company, GraphData, GraphNode, GraphLink
+} from '@/data/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
+import { 
+  getAlumni, 
+  getDepartments, 
+  getCompanies, 
+  getSkills, 
+  getEvents, 
+  getGraphData,
+  getAlumniByDepartment,
+  getAlumniByCompany,
+  getAlumniBySkill,
+  getAlumniByEvent
+} from '@/services/api';
+import { toast } from "sonner";
 
 interface DashboardProps {
   sidebarOpen: boolean;
@@ -18,7 +29,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: DashboardProps) {
-  const [graphData, setGraphData] = useState<GraphData>(generateGraphData());
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedAlumni, setSelectedAlumni] = useState<Person[]>([]);
   const [filters, setFilters] = useState({
@@ -28,9 +39,54 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
     events: [] as string[]
   });
 
-  // Apply active filter from sidebar
+  const { data: alumniData, isLoading: alumniLoading, error: alumniError } = useQuery({
+    queryKey: ['alumni'],
+    queryFn: getAlumni
+  });
+
+  const { data: departmentsData, isLoading: departmentsLoading } = useQuery({
+    queryKey: ['departments'],
+    queryFn: getDepartments
+  });
+
+  const { data: companiesData, isLoading: companiesLoading } = useQuery({
+    queryKey: ['companies'],
+    queryFn: getCompanies
+  });
+
+  const { data: skillsData, isLoading: skillsLoading } = useQuery({
+    queryKey: ['skills'],
+    queryFn: getSkills
+  });
+
+  const { data: eventsData, isLoading: eventsLoading } = useQuery({
+    queryKey: ['events'],
+    queryFn: getEvents
+  });
+
+  const { data: graphDataFromAPI, isLoading: graphLoading } = useQuery({
+    queryKey: ['graphData'],
+    queryFn: getGraphData
+  });
+
+  const isLoading = alumniLoading || departmentsLoading || companiesLoading || skillsLoading || eventsLoading || graphLoading;
+
   useEffect(() => {
-    let filteredData = generateGraphData();
+    if (graphDataFromAPI) {
+      setGraphData(graphDataFromAPI);
+    }
+  }, [graphDataFromAPI]);
+
+  useEffect(() => {
+    if (alumniError) {
+      toast.error("Failed to load data from backend. Please check your connection.");
+    }
+  }, [alumniError]);
+
+  useEffect(() => {
+    if (!graphDataFromAPI) return;
+    
+    let filteredData = { ...graphDataFromAPI };
     
     if (activeFilter) {
       switch(activeFilter) {
@@ -67,7 +123,6 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       }
     }
     
-    // Apply search term if provided
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filteredData = {
@@ -95,13 +150,10 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       };
     }
     
-    // Apply detailed filters
     if (filters.departments.length || filters.companies.length || 
         filters.skills.length || filters.events.length) {
-      // Filter nodes
       const keepNodes = new Set<string>();
       
-      // Keep directly filtered nodes
       filteredData.nodes.forEach(node => {
         if (
           (node.type === 'department' && filters.departments.includes(node.id)) ||
@@ -113,7 +165,6 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
         }
       });
       
-      // Find connected alumni nodes
       filteredData.links.forEach(link => {
         const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
         const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
@@ -122,16 +173,15 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
         if (targetId && keepNodes.has(targetId)) keepNodes.add(sourceId || '');
       });
       
-      // Apply filters
       filteredData = {
         nodes: filteredData.nodes.filter(node => keepNodes.has(node.id)),
         links: filteredData.links.filter(link => {
           const sourceId = typeof link.source === 'string' 
             ? link.source 
-            : (link.source as GraphNode).id;
+            : ((link.source as GraphNode)?.id || '');
           const targetId = typeof link.target === 'string'
             ? link.target
-            : (link.target as GraphNode).id;
+            : ((link.target as GraphNode)?.id || '');
           
           return keepNodes.has(sourceId) && keepNodes.has(targetId);
         })
@@ -139,39 +189,52 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
     }
     
     setGraphData(filteredData);
-  }, [activeFilter, searchTerm, filters]);
+  }, [activeFilter, searchTerm, filters, graphDataFromAPI]);
 
-  // Handle node selection
+  const fetchAlumniForNode = async (nodeId: string, nodeType: string) => {
+    try {
+      let alumni: Person[] = [];
+      
+      switch (nodeType) {
+        case 'alumni':
+          const person = await getAlumniById(nodeId);
+          alumni = [person];
+          break;
+        case 'department':
+          alumni = await getAlumniByDepartment(nodeId);
+          break;
+        case 'company':
+          alumni = await getAlumniByCompany(nodeId);
+          break;
+        case 'skill':
+          alumni = await getAlumniBySkill(nodeId);
+          break;
+        case 'event':
+          alumni = await getAlumniByEvent(nodeId);
+          break;
+        default:
+          break;
+      }
+      
+      return alumni;
+    } catch (error) {
+      console.error("Error fetching alumni for node:", error);
+      toast.error("Failed to load alumni data for this selection.");
+      return [];
+    }
+  };
+
   useEffect(() => {
     if (selectedNodeId) {
-      // Find all alumni connected to this node
-      const relevantAlumni: Person[] = [];
-      const graphAlumni = alumni.filter(a => {
-        // Direct selection of an alumni
-        if (a.id === selectedNodeId) {
-          relevantAlumni.push(a);
-          return true;
-        }
-        
-        // Selection of a connected entity
-        if (
-          (a.department === selectedNodeId) ||
-          (a.company === selectedNodeId) ||
-          (a.skills.includes(selectedNodeId)) ||
-          (a.events.includes(selectedNodeId))
-        ) {
-          relevantAlumni.push(a);
-          return true;
-        }
-        
-        return false;
-      });
-      
-      setSelectedAlumni(relevantAlumni);
+      const selectedNode = graphData.nodes.find(node => node.id === selectedNodeId);
+      if (selectedNode) {
+        fetchAlumniForNode(selectedNodeId, selectedNode.type)
+          .then(alumni => setSelectedAlumni(alumni));
+      }
     } else {
       setSelectedAlumni([]);
     }
-  }, [selectedNodeId]);
+  }, [selectedNodeId, graphData.nodes]);
 
   const handleFilterChange = (type: 'departments' | 'companies' | 'skills' | 'events', id: string) => {
     setFilters(prev => {
@@ -198,6 +261,13 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
     setSelectedNodeId(nodeId || null);
   };
 
+  const getEntityById = <T extends { id: string }>(
+    entities: T[] | undefined,
+    id: string
+  ): T | undefined => {
+    return entities?.find(entity => entity.id === id);
+  };
+
   return (
     <div className={`flex flex-col md:flex-row h-[calc(100vh-4rem)] transition-all duration-300 ${
       sidebarOpen ? 'ml-64' : 'ml-16'
@@ -209,11 +279,17 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
             <TabsTrigger value="metrics">Metrics</TabsTrigger>
           </TabsList>
           <TabsContent value="graph" className="w-full h-full">
-            <NetworkGraph 
-              data={graphData} 
-              selectedNodeId={selectedNodeId} 
-              onNodeClick={handleNodeClick} 
-            />
+            {isLoading ? (
+              <Card className="w-full h-full flex items-center justify-center">
+                <p>Loading graph data...</p>
+              </Card>
+            ) : (
+              <NetworkGraph 
+                data={graphData} 
+                selectedNodeId={selectedNodeId} 
+                onNodeClick={handleNodeClick} 
+              />
+            )}
           </TabsContent>
           <TabsContent value="metrics">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -222,7 +298,7 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
                   <CardTitle className="text-sm font-medium">Total Alumni</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{alumni.length}</div>
+                  <div className="text-2xl font-bold">{alumniData?.length || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -230,7 +306,7 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
                   <CardTitle className="text-sm font-medium">Companies</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{companies.length}</div>
+                  <div className="text-2xl font-bold">{companiesData?.length || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -238,7 +314,7 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
                   <CardTitle className="text-sm font-medium">Departments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{departments.length}</div>
+                  <div className="text-2xl font-bold">{departmentsData?.length || 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -246,7 +322,7 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
                   <CardTitle className="text-sm font-medium">Events</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{events.length}</div>
+                  <div className="text-2xl font-bold">{eventsData?.length || 0}</div>
                 </CardContent>
               </Card>
             </div>
@@ -261,8 +337,8 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
                 <AlumniCard 
                   key={person.id} 
                   alumni={person}
-                  department={getEntityById(departments, person.department)}
-                  company={getEntityById(companies, person.company)}
+                  department={getEntityById(departmentsData, person.department)}
+                  company={getEntityById(companiesData, person.company)}
                 />
               ))}
             </div>
@@ -271,15 +347,21 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       </div>
       
       <div className="w-full md:w-1/4 h-full">
-        <FilterPanel
-          departments={departments}
-          companies={companies}
-          skills={skills}
-          events={events}
-          selectedFilters={filters}
-          onFilterChange={handleFilterChange}
-          onClearFilters={handleClearFilters}
-        />
+        {isLoading ? (
+          <Card className="w-full h-full p-4 flex items-center justify-center">
+            <p>Loading filter data...</p>
+          </Card>
+        ) : (
+          <FilterPanel
+            departments={departmentsData || []}
+            companies={companiesData || []}
+            skills={skillsData || []}
+            events={eventsData || []}
+            selectedFilters={filters}
+            onFilterChange={handleFilterChange}
+            onClearFilters={handleClearFilters}
+          />
+        )}
       </div>
     </div>
   );

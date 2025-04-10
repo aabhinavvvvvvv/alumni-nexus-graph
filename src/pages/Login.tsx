@@ -1,56 +1,50 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { alumni } from '@/data/mockData';
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from 'sonner';
+import { login } from '@/services/api';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [email, setEmail] = useState('sarah.j@example.com');
+  const [password, setPassword] = useState('demo123');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // Mock authentication - in real app, this would be a backend API call
-    const user = alumni.find(a => a.email === email);
-    
-    if (user && password === 'demo123') {  // Demo password check
-      // Store user info in local storage for persistence
-      localStorage.setItem('currentUser', JSON.stringify(user));
+    try {
+      const response = await login(email, password);
       
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${user.name}!`,
-      });
+      // Store user info in localStorage
+      localStorage.setItem('currentUser', JSON.stringify(response.user));
       
+      toast.success('Login successful!');
       navigate('/profile');
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid email or password. Try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error.response?.data?.error || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Alumni Login</CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your profile
+        <CardHeader>
+          <CardTitle className="text-2xl">Alumni Login</CardTitle>
+          <CardDescription>
+            Log in to access your alumni profile and connect with peers
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin}>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -63,37 +57,42 @@ const Login = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <a href="#" className="text-sm text-blue-500 hover:text-blue-700">
+                  Forgot password?
+                </a>
+              </div>
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            <Button type="submit" className="w-full">Login</Button>
-          </form>
-          
-          <Alert className="mt-6 bg-muted">
-            <AlertDescription>
-              <p className="font-medium text-center">Demo Credentials</p>
-              <div className="mt-2 text-sm">
-                <p><strong>Email:</strong> sarah.j@example.com</p>
-                <p><strong>Password:</strong> demo123</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  (You can also use any other email from the alumni list with the same password)
-                </p>
-              </div>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <Button variant="link" onClick={() => navigate('/')}>
-            Back to Alumni Network
-          </Button>
-        </CardFooter>
+            <div className="bg-muted/50 p-3 rounded-md text-sm">
+              <p className="font-medium">Demo Access:</p>
+              <p>Email: sarah.j@example.com</p>
+              <p>Password: demo123</p>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col">
+            <Button 
+              type="submit" 
+              className="w-full mb-4"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+            <p className="text-sm text-center text-muted-foreground">
+              Don't have an account?{" "}
+              <a href="#" className="text-blue-500 hover:text-blue-700">
+                Request access
+              </a>
+            </p>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );
