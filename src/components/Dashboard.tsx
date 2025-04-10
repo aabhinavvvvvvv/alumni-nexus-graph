@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import AlumniCard from './AlumniCard';
@@ -74,21 +75,21 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
           node.label.toLowerCase().includes(searchLower)
         ),
         links: filteredData.links.filter(link => {
-          const sourceNode = typeof link.source === 'string' 
-            ? filteredData.nodes.find(n => n.id === link.source) 
-            : link.source;
-          const targetNode = typeof link.target === 'string'
-            ? filteredData.nodes.find(n => n.id === link.target)
-            : link.target;
+          const sourceId = typeof link.source === 'string' 
+            ? link.source 
+            : (link.source as GraphNode).id;
+          const targetId = typeof link.target === 'string'
+            ? link.target
+            : (link.target as GraphNode).id;
+            
+          const sourceNode = filteredData.nodes.find(n => n.id === sourceId);
+          const targetNode = filteredData.nodes.find(n => n.id === targetId);
             
           if (!sourceNode || !targetNode) return false;
           
-          const sourceLabel = typeof sourceNode === 'object' ? sourceNode.label : '';
-          const targetLabel = typeof targetNode === 'object' ? targetNode.label : '';
-          
           return (
-            sourceLabel.toLowerCase().includes(searchLower) || 
-            targetLabel.toLowerCase().includes(searchLower)
+            sourceNode.label.toLowerCase().includes(searchLower) || 
+            targetNode.label.toLowerCase().includes(searchLower)
           );
         })
       };
@@ -125,9 +126,14 @@ export default function Dashboard({ sidebarOpen, activeFilter, searchTerm }: Das
       filteredData = {
         nodes: filteredData.nodes.filter(node => keepNodes.has(node.id)),
         links: filteredData.links.filter(link => {
-          const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
-          const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
-          return sourceId && targetId && keepNodes.has(sourceId) && keepNodes.has(targetId);
+          const sourceId = typeof link.source === 'string' 
+            ? link.source 
+            : (link.source as GraphNode).id;
+          const targetId = typeof link.target === 'string'
+            ? link.target
+            : (link.target as GraphNode).id;
+          
+          return keepNodes.has(sourceId) && keepNodes.has(targetId);
         })
       };
     }

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   generateGraphData, alumni, departments, companies, 
-  skills, events, Alumni 
+  skills, events, Person 
 } from '@/data/mockData';
 import NetworkGraph from './NetworkGraph';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { Search, Filter, X } from 'lucide-react';
 
 interface FilterContainerProps {
-  onFilteredResults: (results: Alumni[]) => void;
+  onFilteredResults: (results: Person[]) => void;
   showGraph: boolean;
   searchTerm: string;
 }
@@ -51,8 +51,8 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
       
       // Filter by graduation year
       if (
-        person.gradYear < filters.gradYearRange[0] || 
-        person.gradYear > filters.gradYearRange[1]
+        person.graduationYear < filters.gradYearRange[0] || 
+        person.graduationYear > filters.gradYearRange[1]
       ) {
         return false;
       }
