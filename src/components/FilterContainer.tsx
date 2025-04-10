@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,14 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  generateGraphData, alumni, departments, companies, 
-  skills, events, Person 
-} from '@/data/mockData';
+import { Person, Department, Company, Skill, Event } from '@/data/types';
 import NetworkGraph from './NetworkGraph';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Search, Filter, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { 
+  getAlumni, 
+  getDepartments, 
+  getCompanies, 
+  getSkills, 
+  getEvents, 
+  getGraphData 
+} from '@/services/api';
+import { toast } from "sonner";
 
 interface FilterContainerProps {
   onFilteredResults: (results: Person[]) => void;
@@ -32,7 +38,40 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     skills: [] as string[],
     events: [] as string[],
   });
-  const [graphData, setGraphData] = useState(generateGraphData());
+  const [graphData, setGraphData: React.Dispatch<React.SetStateAction<{ nodes: any[]; links: any[]; }>> = useState({ nodes: [], links: [] });
+
+  // Fetch data from backend
+  const { data: alumniData, isLoading: alumniLoading } = useQuery({
+    queryKey: ['alumni'],
+    queryFn: getAlumni
+  });
+
+  const { data: departmentsData, isLoading: departmentsLoading } = useQuery({
+    queryKey: ['departments'],
+    queryFn: getDepartments
+  });
+
+  const { data: companiesData, isLoading: companiesLoading } = useQuery({
+    queryKey: ['companies'],
+    queryFn: getCompanies
+  });
+
+  const { data: skillsData, isLoading: skillsLoading } = useQuery({
+    queryKey: ['skills'],
+    queryFn: getSkills
+  });
+
+  const { data: eventsData, isLoading: eventsLoading } = useQuery({
+    queryKey: ['events'],
+    queryFn: getEvents
+  });
+
+  const { data: graphDataFromAPI, isLoading: graphLoading } = useQuery({
+    queryKey: ['graphData'],
+    queryFn: getGraphData
+  });
+
+  const isLoading = alumniLoading || departmentsLoading || companiesLoading || skillsLoading || eventsLoading || graphLoading;
 
   // Apply search term from header
   useEffect(() => {
@@ -40,10 +79,19 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
       setFilters(prev => ({...prev, name: searchTerm}));
     }
   }, [searchTerm]);
+
+  // Update graph data from API
+  useEffect(() => {
+    if (graphDataFromAPI) {
+      setGraphData(graphDataFromAPI);
+    }
+  }, [graphDataFromAPI]);
   
   // Filter alumni based on criteria
   useEffect(() => {
-    const filtered = alumni.filter(person => {
+    if (!alumniData) return;
+    
+    const filtered = alumniData.filter((person: Person) => {
       // Filter by name
       if (filters.name && !person.name.toLowerCase().includes(filters.name.toLowerCase())) {
         return false;
@@ -69,13 +117,13 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
       
       // Filter by skills
       if (filters.skills.length > 0) {
-        const hasSkill = filters.skills.some(skill => person.skills.includes(skill));
+        const hasSkill = filters.skills.some(skill => person.skills && person.skills.includes(skill));
         if (!hasSkill) return false;
       }
       
       // Filter by events
       if (filters.events.length > 0) {
-        const hasEvent = filters.events.some(event => person.events.includes(event));
+        const hasEvent = filters.events.some(event => person.events && person.events.includes(event));
         if (!hasEvent) return false;
       }
       
@@ -85,9 +133,9 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     onFilteredResults(filtered);
     
     // Update graph data based on filtered alumni
-    if (showGraph) {
+    if (showGraph && graphDataFromAPI) {
       const filteredIds = new Set(filtered.map(person => person.id));
-      const filteredData = generateGraphData();
+      const filteredData = { ...graphDataFromAPI };
       
       filteredData.nodes = filteredData.nodes.filter(node => {
         if (node.type === 'alumni') {
@@ -97,8 +145,8 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
       });
       
       filteredData.links = filteredData.links.filter(link => {
-        const sourceId = typeof link.source === 'object' ? link.source?.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target?.id : link.target;
+        const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
         
         if (!sourceId || !targetId) return false;
         
@@ -111,7 +159,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
       
       setGraphData(filteredData);
     }
-  }, [filters, showGraph, onFilteredResults]);
+  }, [filters, showGraph, onFilteredResults, alumniData, graphDataFromAPI]);
   
   const handleGradYearChange = (value: number[]) => {
     setFilters(prev => ({...prev, gradYearRange: value}));
@@ -173,7 +221,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     }
     
     filters.departments.forEach(deptId => {
-      const dept = departments.find(d => d.id === deptId);
+      const dept = departmentsData?.find(d => d.id === deptId);
       if (dept) {
         badges.push(
           <Badge key={`dept-${deptId}`} variant="outline" className="bg-blue-500/10">
@@ -188,7 +236,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     });
     
     filters.companies.forEach(compId => {
-      const comp = companies.find(c => c.id === compId);
+      const comp = companiesData?.find(c => c.id === compId);
       if (comp) {
         badges.push(
           <Badge key={`comp-${compId}`} variant="outline" className="bg-orange-500/10">
@@ -203,7 +251,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     });
     
     filters.skills.forEach(skillId => {
-      const skill = skills.find(s => s.id === skillId);
+      const skill = skillsData?.find(s => s.id === skillId);
       if (skill) {
         badges.push(
           <Badge key={`skill-${skillId}`} variant="outline" className="bg-purple-500/10">
@@ -218,7 +266,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
     });
     
     filters.events.forEach(eventId => {
-      const event = events.find(e => e.id === eventId);
+      const event = eventsData?.find(e => e.id === eventId);
       if (event) {
         badges.push(
           <Badge key={`event-${eventId}`} variant="outline" className="bg-pink-500/10">
@@ -307,7 +355,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
                   <Label className="text-xs">Departments</Label>
                   <ScrollArea className="h-28 rounded-md border p-2">
                     <div className="space-y-2">
-                      {departments.map((dept) => (
+                      {departmentsData?.map((dept) => (
                         <div key={dept.id} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`dept-${dept.id}`} 
@@ -330,7 +378,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
                   <Label className="text-xs">Companies</Label>
                   <ScrollArea className="h-28 rounded-md border p-2">
                     <div className="space-y-2">
-                      {companies.map((company) => (
+                      {companiesData?.map((company) => (
                         <div key={company.id} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`company-${company.id}`} 
@@ -353,7 +401,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
                   <Label className="text-xs">Skills</Label>
                   <ScrollArea className="h-28 rounded-md border p-2">
                     <div className="space-y-2">
-                      {skills.map((skill) => (
+                      {skillsData?.map((skill) => (
                         <div key={skill.id} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`skill-${skill.id}`} 
@@ -379,7 +427,7 @@ export default function FilterContainer({ onFilteredResults, showGraph, searchTe
                   <Label className="text-xs">Events</Label>
                   <ScrollArea className="h-28 rounded-md border p-2">
                     <div className="space-y-2">
-                      {events.map((event) => (
+                      {eventsData?.map((event) => (
                         <div key={event.id} className="flex items-center space-x-2">
                           <Checkbox 
                             id={`event-${event.id}`} 

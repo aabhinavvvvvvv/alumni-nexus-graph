@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import * as d3 from 'd3';
-import { GraphData, GraphNode, GraphLink } from '@/data/mockData';
+import { GraphData, GraphNode, GraphLink } from '@/data/types';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
@@ -79,7 +79,7 @@ export default function NetworkGraph({ data, selectedNodeId, onNodeClick }: Netw
     const validLinks = linksCopy.filter(link => {
       const sourceId = typeof link.source === 'object' && link.source ? link.source.id : link.source;
       const targetId = typeof link.target === 'object' && link.target ? link.target.id : link.target;
-      return sourceId && targetId && nodeIds.has(sourceId as string) && nodeIds.has(targetId as string);
+      return sourceId && targetId && nodeIds.has(sourceId) && nodeIds.has(targetId);
     });
 
     const simulation = d3.forceSimulation(nodesCopy)

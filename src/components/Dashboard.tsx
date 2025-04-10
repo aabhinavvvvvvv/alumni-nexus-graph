@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import NetworkGraph from './NetworkGraph';
 import AlumniCard from './AlumniCard';
@@ -15,6 +16,7 @@ import {
   getSkills, 
   getEvents, 
   getGraphData,
+  getAlumniById,
   getAlumniByDepartment,
   getAlumniByCompany,
   getAlumniBySkill,
